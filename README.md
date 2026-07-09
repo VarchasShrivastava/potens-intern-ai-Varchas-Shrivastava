@@ -300,3 +300,5 @@ Contradiction detection
 Multilingual capabilities
 
 The system prioritizes trustworthiness and traceability over generative freedom, making it suitable for document-heavy domains such as enterprise policy search, legal document analysis, research assistance, and internal knowledge management systems.
+
+Ai tools used- Copilot, Codex, Chatgpt, Claude
