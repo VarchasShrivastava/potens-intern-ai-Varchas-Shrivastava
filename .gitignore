@@ -1,14 +1,18 @@
+# Virtual environment
 venv/
+
+# Python cache
 __pycache__/
 *.pyc
+
+# Environment variables
 .env
 
+# Local data
 data/chroma/
 data/uploads/
-
 *.pdf
 
-.streamlit/
-
-.idea/
+# IDE files
 .vscode/
+.idea/
