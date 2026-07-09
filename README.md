@@ -1,145 +1,268 @@
 Potens Document RAG System
+Multilingual Citation-Aware Retrieval Augmented Generation (RAG) with Contradiction Detection
 
-A multilingual, citation-aware Retrieval Augmented Generation (RAG) system built using FastAPI, ChromaDB, Sentence Transformers, Ollama and Streamlit.
+Overview
 
-The system allows users to upload documents, ask questions grounded in those documents, detect contradictions between documents, and receive answers with citations and supporting evidence.
+This project is a document-grounded Retrieval Augmented Generation (RAG) system built as part of the Potens AI Internship Assignment (Q1: Document Q&A with Citations).
 
+The system ingests documents, converts them into semantic embeddings, stores them in a vector database, and answers user questions strictly using retrieved evidence from the uploaded documents.
+
+Unlike conventional chatbots, the system is designed to:
+
+Provide source-backed answers
+Include citations and evidence snippets
+Explicitly refuse to answer when the information is not present in the documents
+Detect contradictions between documents
+Support multilingual interactions
+Assignment Requirements Coverage
+Requirement	Implementation
+Ingest, chunk, embed and store documents	✅ Implemented
+Explain chunking strategy in README	✅ Implemented
+/ask endpoint with citations	✅ Implemented
+Citation contains file, page/chunk and snippet	✅ Implemented
+/contradict endpoint	✅ Implemented
+Multilingual support	✅ Implemented
+Streamlit UI	✅ Implemented
+No silent hallucination	✅ Implemented
+Free/open-source LLM	✅ Qwen3 via Ollama
+Vector Store	✅ ChromaDB
 Features
-Document upload through API and UI
-PDF text extraction
-Semantic chunking with metadata preservation
-Vector embeddings using Sentence Transformers
-ChromaDB vector storage
-Grounded question answering
-Source citations with:
-source file
-page number
-chunk identifier
-evidence snippet
-Contradiction detection between documents
-Multilingual query support
-Streamlit UI
-Hallucination prevention
-Architecture
-User Uploads PDF
-        ↓
-PDF Loader
-        ↓
-Text Extraction
-        ↓
-Chunking
-        ↓
-Embeddings
-        ↓
-ChromaDB Vector Store
-        ↓
-Retriever
-        ↓
-Qwen3 via Ollama
-        ↓
-Answer + Citations
-Tech Stack
-Component	Technology
-API	FastAPI
-UI	Streamlit
-Vector Database	ChromaDB
-Embeddings	Sentence Transformers
-LLM	Qwen3 via Ollama
-Document Processing	PyPDF
-Retrieval	Dense Vector Search
-Chunking Strategy
+Document Ingestion Pipeline
+PDF Upload API
+Text extraction using PyPDF
+Metadata preservation
+Automatic indexing into ChromaDB
+Citation-Aware Question Answering
 
-The system uses a RecursiveCharacterTextSplitter with:
+Every answer contains:
 
-Chunk Size: 2000 characters
-Chunk Overlap: 200 characters
+Source document
+Page number
+Chunk identifier
+Supporting snippet
 
-Metadata is preserved for every chunk:
+Example:
 
 {
-    "chunk_id": "policy.pdf_p3_c2",
-    "source": "policy.pdf",
-    "page": 3
+  "answer": "Employees are entitled to 20 days of annual leave per year.",
+  "citations": [
+    {
+      "source_file": "employee_policy.pdf",
+      "page": 4,
+      "chunk_id": "employee_policy.pdf_p4_c1",
+      "snippet": "Employees are entitled to twenty days of annual leave annually."
+    }
+  ]
+}
+Contradiction Detection
+
+The system compares two uploaded documents on a specific topic and determines whether they conflict.
+
+Example:
+
+Input:
+
+{
+  "document_1": "policy_v1.pdf",
+  "document_2": "policy_v2.pdf",
+  "topic": "remote work policy"
 }
 
-This enables precise citations and evidence tracking.
+Output:
 
-The separator hierarchy is:
-
-Double newline
-Single newline
-Sentence boundary
-Whitespace
-Character boundary
-
-This preserves semantic coherence while minimizing context fragmentation.
-
+{
+  "conflict": true,
+  "reasoning": "Document 1 allows hybrid work while Document 2 mandates full office attendance.",
+  "evidence": [
+    {
+      "document": "policy_v1.pdf",
+      "snippet": "Employees may work remotely up to three days per week."
+    },
+    {
+      "document": "policy_v2.pdf",
+      "snippet": "Employees are expected to attend the office five days per week."
+    }
+  ]
+}
 Hallucination Prevention
 
-The model is explicitly instructed to:
+A primary design goal of this system is to prevent unsupported responses.
 
-answer only from retrieved context
-avoid external knowledge
-state when information is unavailable
+The model receives the following instructions:
 
-If documents do not contain the answer, the system returns:
+Answer strictly from retrieved context.
+Never use external knowledge.
+Explicitly state when information is unavailable.
+
+If the uploaded documents do not contain the answer, the system returns:
 
 The provided documents do not contain enough information to answer this question.
+
+This ensures the system remains document-grounded and auditable.
+
+System Architecture
+                    ┌─────────────────┐
+                    │ Uploaded PDFs   │
+                    └────────┬────────┘
+                             │
+                             ▼
+                  ┌──────────────────┐
+                  │ PDF Text Loader  │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │ Document Chunker │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │ Embedding Model  │
+                  │ BGE Small v1.5   │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │    ChromaDB      │
+                  │  Vector Store    │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │ Semantic Search  │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │ Qwen3 via Ollama │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │ Answer + Citation│
+                  └──────────────────┘
+Chunking Strategy
+
+The assignment explicitly requires explanation of chunking strategy.
+
+The system uses Recursive Character Text Splitting with the following configuration:
+
+Parameter	Value
+Chunk Size	2000 characters
+Chunk Overlap	200 characters
+Split Priority	Paragraph → Line → Sentence → Word
+
+Configuration:
+
+RecursiveCharacterTextSplitter(
+    chunk_size=2000,
+    chunk_overlap=200,
+    separators=[
+        "\n\n",
+        "\n",
+        ". ",
+        " ",
+        ""
+    ]
+)
+Why This Strategy?
+Large chunks preserve semantic context
+
+Smaller chunks often fragment concepts across multiple embeddings.
+
+Overlap prevents information loss
+
+Information located near chunk boundaries remains retrievable.
+
+Hierarchical splitting maintains readability
+
+Paragraphs and sentences remain intact whenever possible.
+
+Metadata Preservation
+
+Every chunk stores metadata required for citation generation.
+
+Example:
+
+{
+  "chunk_id": "policy.pdf_p3_c2",
+  "source": "policy.pdf",
+  "page": 3
+}
+
+This allows the system to generate traceable and explainable answers.
+
+Technology Stack
+Layer	Technology
+API Backend	FastAPI
+Frontend UI	Streamlit
+Vector Database	ChromaDB
+Embeddings	BAAI/bge-small-en-v1.5
+LLM	Qwen3 via Ollama
+Document Parsing	PyPDF
+Retrieval	Dense Vector Similarity Search
 API Endpoints
 Upload Documents
 POST /upload
 
-Uploads and stores documents for indexing.
+Uploads and indexes PDF documents.
 
 Ask Questions
 POST /ask
 
-Example request:
+Request:
 
 {
-    "question": "What is the leave policy?"
-}
-
-Example response:
-
-{
-    "answer": "Employees are entitled to 20 days of annual leave.",
-    "citations": [
-        {
-            "source_file": "employee_policy.pdf",
-            "page": 4,
-            "chunk_id": "employee_policy.pdf_p4_c1",
-            "snippet": "Employees are entitled to 20 days..."
-        }
-    ]
+  "question": "What is the leave policy?"
 }
 Contradiction Detection
 POST /contradict
 
-Example request:
+Request:
 
 {
-    "document_1": "policy_v1.pdf",
-    "document_2": "policy_v2.pdf",
-    "topic": "remote work policy"
+  "document_1": "policy_v1.pdf",
+  "document_2": "policy_v2.pdf",
+  "topic": "remote work policy"
 }
+Health Check
+GET /health
+Streamlit UI
 
-Example response:
+The application includes a Streamlit interface that allows users to:
 
-{
-    "conflict": true,
-    "reasoning": "Document 1 allows hybrid work while Document 2 requires office attendance.",
-    "evidence": [...]
-}
+Upload documents
+Ask questions
+View citations
+Compare documents for contradictions
+Project Structure
+potens-intern-ai-varchas-shrivastava/
+│
+├── app/
+│   ├── api/
+│   │   ├── upload.py
+│   │   ├── ask.py
+│   │   └── contradict.py
+│   │
+│   └── rag/
+│       ├── loader.py
+│       ├── chunker.py
+│       ├── vector_store.py
+│       ├── retriever.py
+│       └── generator.py
+│
+├── ui/
+│   └── app.py
+│
+├── main.py
+├── requirements.txt
+└── README.md
 Running Locally
 Clone Repository
-git clone <repository-url>
-cd potens-document-rag
-Create Environment
+git clone https://github.com/<username>/potens-intern-ai-Varchas-Shrivastava.git
+cd potens-intern-ai-Varchas-Shrivastava
+Create Virtual Environment
 python -m venv venv
-
-Activate:
-
 Windows
 venv\Scripts\activate
 Linux / Mac
@@ -153,30 +276,27 @@ Install Ollama and pull the model:
 ollama pull qwen3:8b
 Start Backend
 uvicorn main:app --reload
-Start UI
+Start Streamlit UI
 streamlit run ui/app.py
-Project Structure
-project/
-│
-├── app/
-│   ├── api/
-│   └── rag/
-│
-├── data/
-│   ├── uploads/
-│   └── chroma/
-│
-├── ui/
-│
-├── tests/
-│
-├── README.md
-├── requirements.txt
-└── main.py
+Limitations
+OCR support for scanned PDFs is currently not implemented.
+Contradiction detection quality depends on document coverage and retrieval quality.
+Multilingual support currently relies on the multilingual capabilities of Qwen3.
 Future Improvements
 Confidence scoring
 Reranking layer
-OCR support for scanned PDFs
-Hybrid search (BM25 + dense retrieval)
+OCR support
+Hybrid retrieval (BM25 + Dense Search)
 Human-in-the-loop verification
 Docker deployment
+Conclusion
+
+This project demonstrates a production-style RAG architecture with:
+
+Grounded generation
+Explainability
+Auditable citations
+Contradiction detection
+Multilingual capabilities
+
+The system prioritizes trustworthiness and traceability over generative freedom, making it suitable for document-heavy domains such as enterprise policy search, legal document analysis, research assistance, and internal knowledge management systems.
