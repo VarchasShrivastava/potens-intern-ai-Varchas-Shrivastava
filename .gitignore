@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.env
+
+data/chroma/
+data/uploads/
+
+*.pdf
+
+.streamlit/
+
+.idea/
+.vscode/
